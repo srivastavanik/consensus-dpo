@@ -197,6 +197,15 @@ async def consensus(req: ConsensusRequest) -> dict:
         mlflow.log_dict(final_decision, artifact_file="final_decision.json")
     mlflow.end_run()
     await client.aclose()
-    return {"decisions": decisions, "final": final_decision, "pair_written": bool(rec), "pairs_path": out_path, "evidence_supported": supported}
+    # Return candidate snippets to support eval selection
+    return {
+        "decisions": decisions,
+        "final": final_decision,
+        "pair_written": bool(rec),
+        "pairs_path": out_path,
+        "evidence_supported": supported,
+        "a": a_text[:4000],
+        "b": b_text[:4000],
+    }
 
 
