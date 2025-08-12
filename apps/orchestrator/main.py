@@ -9,6 +9,8 @@ from pydantic import BaseModel
 
 from libs.consensus_dpo.provider import CompletionRequest, GenParams, NovitaClient
 from libs.consensus_dpo.datasets import PairBuilder
+from libs.consensus_dpo.prompts import GENERATOR_TEMPLATE, JUDGE_TEMPLATE
+from libs.consensus_dpo.utils.json_utils import extract_json_object
 
 
 class GenerateRequest(BaseModel):
@@ -54,40 +56,62 @@ class ConsensusRequest(BaseModel):
     prompt: str
     model: str
     k: int = 3
+    m: int = 2  # counterfactual judge views
+    r: int = 1  # debate rounds (R=1 minimal now)
 
 
 @app.post("/consensus")
 async def consensus(req: ConsensusRequest) -> dict:
     client = NovitaClient()
+    # 1) Generation with structured prompt
     gen_params = GenParams(temperature=0.9, top_p=0.95, max_tokens=512)
-    reqs = [CompletionRequest(model=req.model, prompt=req.prompt, params=gen_params) for _ in range(req.k)]
-    cands = await client.batchGenerate(reqs)
+    prompts = [
+        GENERATOR_TEMPLATE.format(problem=req.prompt)
+        for _ in range(req.k)
+    ]
+    gen_reqs = [CompletionRequest(model=req.model, prompt=p, params=gen_params) for p in prompts]
+    cands = await client.batchGenerate(gen_reqs)
 
-    # Minimal judge: compare first two with a simple prompt using the judge worker template
-    judge_prompt = (
-        "You are a careful judge. Compare two answers (A,B) for the same task.\n"
-        "Apply bias controls: ignore style; equalize length; consider evidence.\n"
-        "Return JSON: {winner:'A|B|Tie', reasons:['...','...'], score_delta:-3..3, pos_swap_consistency:true|false, len_norm_consistency:true|false}.\n"
-        f"Task: {req.prompt}\nA: {cands[0].text}\nB: {cands[1].text}\n"
-    )
-    judge_out = await client.generate(CompletionRequest(model=req.model, prompt=judge_prompt, params=GenParams(temperature=0.2, top_p=0.9, max_tokens=200)))
+    # 2) Debate R=1 minimal (pairwise cross-exam skipped for brevity; next commit will add)
 
-    # Try to parse as JSON; if fails, fallback to a Tie
-    import json as _json
+    # 3) Judge with m counterfactual views (swap A/B)
+    a_text = cands[0].text
+    b_text = cands[1].text if len(cands) > 1 else cands[0].text
 
-    try:
-        decision = _json.loads(judge_out.text)
-    except Exception:
-        decision = {"winner": "Tie", "score_delta": 0, "pos_swap_consistency": False, "len_norm_consistency": False}
+    decisions = []
+    judge_params = GenParams(temperature=0.2, top_p=0.9, max_tokens=220)
+    # View 1: A,B
+    judge_p1 = JUDGE_TEMPLATE.format(problem=req.prompt, a=a_text, b=b_text)
+    # View 2: B,A
+    judge_p2 = JUDGE_TEMPLATE.format(problem=req.prompt, a=b_text, b=a_text)
+    for p in [judge_p1, judge_p2][: max(1, req.m)]:
+        out = await client.generate(CompletionRequest(model=req.model, prompt=p, params=judge_params))
+        parsed = extract_json_object(out.text) or {
+            "winner": "Tie",
+            "score_delta": 0,
+            "pos_swap_consistency": False,
+            "len_norm_consistency": False,
+        }
+        decisions.append(parsed)
+
+    # Aggregate: consistency if both views flip winner accordingly
+    if len(decisions) >= 2:
+        w1, w2 = decisions[0].get("winner"), decisions[1].get("winner")
+        # If we swapped inputs in view2, then consistency means w2 is the opposite
+        pos_consistent = ((w1 == "A" and w2 == "B") or (w1 == "B" and w2 == "A") or (w1 == "Tie" and w2 == "Tie"))
+        for d in decisions:
+            d["pos_swap_consistency"] = bool(pos_consistent)
+
+    final_decision = decisions[0]
 
     from libs.consensus_dpo.datasets.pairs import Candidate
 
-    cand_a = Candidate(answer=cands[0].text, rationale="", citations=[])
-    cand_b = Candidate(answer=cands[1].text, rationale="", citations=[])
+    cand_a = Candidate(answer=a_text, rationale="", citations=[])
+    cand_b = Candidate(answer=b_text, rationale="", citations=[])
     out_path = os.getenv("PAIRS_OUT", "./data/pairs.v1.jsonl")
     builder = PairBuilder(out_path)
-    rec = builder.add_pair(req.prompt, cand_a, cand_b, decision)
+    rec = builder.add_pair(req.prompt, cand_a, cand_b, final_decision, debate_meta={"rounds": req.r, "agents": req.k})
     await client.aclose()
-    return {"decision": decision, "pair_written": bool(rec), "pairs_path": out_path}
+    return {"decisions": decisions, "final": final_decision, "pair_written": bool(rec), "pairs_path": out_path}
 
 
