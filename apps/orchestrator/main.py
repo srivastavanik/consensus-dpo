@@ -6,6 +6,7 @@ from typing import List, Optional
 import orjson
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import orjson
 from pydantic import BaseModel
 import mlflow
 
@@ -73,6 +74,7 @@ class ConsensusRequest(BaseModel):
     m: int = 2  # counterfactual judge views
     r: int = 1  # debate rounds (R=1 minimal now)
     use_queues: bool = False
+    use_judge_queues: bool = False
 
 
 @app.post("/consensus")
@@ -129,15 +131,33 @@ async def consensus(req: ConsensusRequest) -> dict:
     judge_p1 = JUDGE_TEMPLATE.format(problem=req.prompt, a=a_text, b=b_text)
     # View 2: B,A
     judge_p2 = JUDGE_TEMPLATE.format(problem=req.prompt, a=b_text, b=a_text)
-    for p in [judge_p1, judge_p2][: max(1, req.m)]:
-        out = await client.generate(CompletionRequest(model=req.model, prompt=p, params=judge_params))
-        parsed = extract_json_object(out.text) or {
-            "winner": "Tie",
-            "score_delta": 0,
-            "pos_swap_consistency": False,
-            "len_norm_consistency": False,
-        }
-        decisions.append(parsed)
+    views = [judge_p1, judge_p2][: max(1, req.m)]
+    if req.use_judge_queues:
+        rds = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+        job_id = os.urandom(8).hex()
+        for p in views:
+            rds.rpush("queue:judge:in", orjson.dumps({"id": job_id, "model": req.model, "problem": req.prompt, "a": a_text if p == judge_p1 else b_text, "b": b_text if p == judge_p1 else a_text}))
+        while len(decisions) < len(views):
+            _, payload = rds.blpop("queue:judge:out")
+            item = orjson.loads(payload)
+            if item.get("id") == job_id:
+                parsed = extract_json_object(item.get("decision", "")) or {
+                    "winner": "Tie",
+                    "score_delta": 0,
+                    "pos_swap_consistency": False,
+                    "len_norm_consistency": False,
+                }
+                decisions.append(parsed)
+    else:
+        for p in views:
+            out = await client.generate(CompletionRequest(model=req.model, prompt=p, params=judge_params))
+            parsed = extract_json_object(out.text) or {
+                "winner": "Tie",
+                "score_delta": 0,
+                "pos_swap_consistency": False,
+                "len_norm_consistency": False,
+            }
+            decisions.append(parsed)
     mlflow.log_dict({"decisions": decisions}, artifact_file="decisions.json")
 
     # Aggregate: consistency if both views flip winner accordingly
