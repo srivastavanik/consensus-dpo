@@ -4,7 +4,7 @@ GENERATOR_TEMPLATE = (
     "You are a careful, concise reasoner.\n"
     "Task: {problem}\n"
     "Rules: Show steps succinctly; cite facts with [DocID] or URL; do not fabricate.\n"
-    'Return JSON: {"answer": "...", "rationale": "...", "citations": ["..."]}'
+    'Return JSON: {{"answer": "...", "rationale": "...", "citations": ["..."]}}'
 )
 
 DEBATE_R1_TEMPLATE = (
@@ -19,7 +19,7 @@ DEBATE_R2_TEMPLATE = (
 
 JUDGE_TEMPLATE = (
     "Bias-controlled LLM-as-judge. Swap A/B ordering, equalize lengths, blind model IDs, normalize style markers.\n"
-    "Return JSON: { winner: 'A|B|Tie', reasons: ['...','...'], score_delta: -3..3, pos_swap_consistency: true|false, len_norm_consistency: true|false }\n"
+    "Return JSON: {{ winner: 'A|B|Tie', reasons: ['...','...'], score_delta: -3..3, pos_swap_consistency: true|false, len_norm_consistency: true|false }}\n"
     "Task: {problem}\nA: {a}\nB: {b}"
 )
 
