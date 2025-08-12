@@ -10,12 +10,22 @@ st.set_page_config(page_title="Consensus-DPO", page_icon="⚖️", layout="wide"
 # Minimal, clean black/white theme via Streamlit config overrides
 st.markdown(
     """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-    .stApp { background-color: #ffffff; color: #111111; }
-    .stButton>button { background-color: #111111; color: #ffffff; border-radius: 6px; padding: 0.5rem 1rem; }
-    .stTextInput>div>div>input { color: #111; }
-    .css-ocqkz7, .e1f1d6gn5 { color: #111 !important; }
-    .stMarkdown code { background: #f7f7f7; color: #111; }
+    :root { --primary: #000000; --text: #111111; --bg: #ffffff; }
+    html, body, .stApp { background-color: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans', sans-serif; }
+    h1, h2, h3, h4 { color: var(--text); font-weight: 600; }
+    .stButton>button { background-color: var(--primary); color: #ffffff; border-radius: 6px; padding: 0.55rem 1rem; border: 1px solid var(--primary); }
+    .stButton>button:hover { opacity: 0.9; }
+    textarea, input, select { background-color: #ffffff !important; color: var(--text) !important; border: 1px solid var(--primary) !important; border-radius: 6px !important; }
+    .stTextArea textarea, .stTextInput input, .stNumberInput input { background: #ffffff !important; color: var(--text) !important; }
+    .stNumberInput > div, .stTextInput > div, .stTextArea > div { background: #ffffff !important; }
+    ::placeholder { color: #666666 !important; opacity: 1; }
+    .stTabs [data-baseweb="tab"] { color: #666; }
+    .stTabs [aria-selected="true"] { color: var(--primary) !important; border-bottom: 2px solid var(--primary) !important; }
+    .stMarkdown code { background: #f2f2f2; color: var(--text); }
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
     </style>
     """,
