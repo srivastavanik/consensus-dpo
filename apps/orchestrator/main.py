@@ -15,6 +15,7 @@ from libs.consensus_dpo.utils.json_utils import extract_json_object
 from libs.consensus_dpo.utils.parse_structured import parse_generator_json
 from libs.consensus_dpo.judge.aggregator import aggregate_views
 from libs.consensus_dpo.debate.r1r2 import run_r1, run_r2
+from libs.consensus_dpo.retrieval.verifier import verify_citations
 
 
 class GenerateRequest(BaseModel):
@@ -130,6 +131,22 @@ async def consensus(req: ConsensusRequest) -> dict:
 
     cand_a = Candidate(answer=a_text, rationale=parsed[0].get("rationale", ""), citations=parsed[0].get("citations", []))
     cand_b = Candidate(answer=b_text, rationale=(parsed[1].get("rationale", "") if len(parsed) > 1 else ""), citations=(parsed[1].get("citations", []) if len(parsed) > 1 else []))
+
+    # Optional: evidence verification if retriever is live
+    import httpx as _httpx
+    cited_docs = []
+    try:
+        async with _httpx.AsyncClient(timeout=10) as _hc:
+            for c in (cand_a.citations + cand_b.citations):
+                resp = await _hc.get(os.getenv("RETRIEVER_URL", "http://127.0.0.1:8010") + "/fetch", params={"doc_id": c})
+                if resp.status_code == 200:
+                    d = resp.json()
+                    d["doc_id"] = c
+                    cited_docs.append(d)
+    except Exception:
+        pass
+    supported, support_scores = verify_citations(a_text + "\n" + b_text, cited_docs)
+    mlflow.log_dict({"evidence_supported": supported, "support_scores": support_scores}, artifact_file="evidence.json")
     out_path = os.getenv("PAIRS_OUT", "./data/pairs.v1.jsonl")
     builder = PairBuilder(out_path)
     rec = builder.add_pair(req.prompt, cand_a, cand_b, final_decision, debate_meta={"rounds": req.r, "agents": req.k})
@@ -137,6 +154,6 @@ async def consensus(req: ConsensusRequest) -> dict:
         mlflow.log_dict(final_decision, artifact_file="final_decision.json")
     mlflow.end_run()
     await client.aclose()
-    return {"decisions": decisions, "final": final_decision, "pair_written": bool(rec), "pairs_path": out_path}
+    return {"decisions": decisions, "final": final_decision, "pair_written": bool(rec), "pairs_path": out_path, "evidence_supported": supported}
 
 
