@@ -17,7 +17,7 @@ OUT_Q = os.getenv("JUDGE_QUEUE_OUT", "queue:judge:out")
 JUDGE_TEMPLATE = (
     "You are a careful judge. Compare two answers (A,B) for the same task.\n"
     "Apply bias controls: ignore style; equalize length; consider evidence.\n"
-    "Return JSON: {winner:'A|B|Tie', reasons:['...','...'], score_delta:-3..3, pos_swap_consistency:true|false, len_norm_consistency:true|false}.\n"
+    "Return JSON: {{winner:'A|B|Tie', reasons:['...','...'], score_delta:-3..3, pos_swap_consistency:true|false, len_norm_consistency:true|false}}.\n"
     "Task: {problem}\nA: {a}\nB: {b}\n"
 )
 
