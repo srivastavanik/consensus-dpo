@@ -34,7 +34,10 @@ with st.form("consensus_form", clear_on_submit=False):
     r = st.number_input("R debate rounds", min_value=0, max_value=2, value=1, step=1)
     submitted = st.form_submit_button("Run consensus")
 
-if submitted and prompt.strip():
+tab_run, tab_eval = st.tabs(["Run", "Evaluate"])
+
+with tab_run:
+    if submitted and prompt.strip():
     try:
         resp = requests.post(f"{API}/consensus", json={"prompt": prompt, "model": model, "k": int(k), "m": int(m), "r": int(r)})
         if resp.status_code != 200:
@@ -50,5 +53,18 @@ if submitted and prompt.strip():
                 st.caption(f"Evidence supported: {data['evidence_supported']}")
     except Exception as e:
         st.error(str(e))
+
+with tab_eval:
+    st.write("GSM8K quick evaluation (EM on limited subset)")
+    n = st.number_input("Limit", min_value=10, max_value=200, value=20, step=10)
+    if st.button("Run GSM8K eval"):
+        try:
+            import subprocess, sys, json as _json
+            env = os.environ.copy()
+            env["ORCH_URL"] = API
+            out = subprocess.check_output([sys.executable, "apps/evaluator/bench_gsm8k.py"], env=env)
+            st.json(_json.loads(out.decode().strip().replace("'", '"')) if out else {"msg": "done"})
+        except Exception as e:
+            st.error(str(e))
 
 
