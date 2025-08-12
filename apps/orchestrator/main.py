@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import orjson
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import mlflow
 
@@ -33,6 +34,13 @@ class GenerateResponse(BaseModel):
 
 
 app = FastAPI(title="Consensus-DPO Orchestrator")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
