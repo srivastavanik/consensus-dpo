@@ -1,0 +1,6 @@
+stages:
+  pairs:
+    cmd: python -c "print('Pairs produced by orchestrator; tracked via DVC add')"
+    outs:
+      - data/pairs.v1.jsonl
+

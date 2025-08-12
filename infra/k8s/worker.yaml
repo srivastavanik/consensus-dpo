@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: generator-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: generator-worker
+  template:
+    metadata:
+      labels:
+        app: generator-worker
+    spec:
+      containers:
+        - name: generator
+          image: ghcr.io/srivastavanik/consensus-generator:latest
+          env:
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: NOVITA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: novita
+                  key: api_key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: judge-worker
+  template:
+    metadata:
+      labels:
+        app: judge-worker
+    spec:
+      containers:
+        - name: judge
+          image: ghcr.io/srivastavanik/consensus-judge:latest
+          env:
+            - name: REDIS_URL
+              value: redis://redis:6379/0
+            - name: NOVITA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: novita
+                  key: api_key
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+
