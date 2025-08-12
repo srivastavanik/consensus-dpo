@@ -66,5 +66,16 @@ with tab_eval:
             st.json(_json.loads(out.decode().strip().replace("'", '"')) if out else {"msg": "done"})
         except Exception as e:
             st.error(str(e))
+    st.write("MMLU quick evaluation (subset)")
+    n2 = st.number_input("Limit (MMLU)", min_value=20, max_value=200, value=50, step=10)
+    if st.button("Run MMLU eval"):
+        try:
+            import subprocess, sys, json as _json
+            env = os.environ.copy()
+            env["ORCH_URL"] = API
+            out = subprocess.check_output([sys.executable, "apps/evaluator/bench_mmlu.py"], env=env)
+            st.json(_json.loads(out.decode().strip().replace("'", '"')) if out else {"msg": "done"})
+        except Exception as e:
+            st.error(str(e))
 
 
