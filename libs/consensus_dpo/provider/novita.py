@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from tenacity import AsyncRetrying, retry_if_exception_type, stop_after_attempt, wait_exponential_jitter
 
 from .base import Completion, CompletionRequest, GenParams, ModelProvider
@@ -15,6 +15,11 @@ from .rate_limiter import TokenBucketLimiter
 
 
 class NovitaConfig(BaseSettings):
+    """Configuration for Novita provider (loads from process env and .env)."""
+
+    # Load .env automatically
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     api_key: str = os.getenv("NOVITA_API_KEY", "")
     base_url: str = os.getenv("NOVITA_BASE_URL", "https://api.novita.ai")
     api_path: str = os.getenv("NOVITA_API_PATH", "/v1/chat/completions")
@@ -42,7 +47,16 @@ class NovitaClient(ModelProvider):
 
     async def _post_chat_completions(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         url = self.config.base_url.rstrip("/") + self.config.api_path
-        headers = {"Authorization": f"Bearer {self.config.api_key}"}
+        api_key = (self.config.api_key or "").strip()
+        if not api_key:
+            raise ValueError(
+                "NOVITA_API_KEY is not set. Define it in your environment or .env file."
+            )
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
 
         async for attempt in AsyncRetrying(
             reraise=True,
