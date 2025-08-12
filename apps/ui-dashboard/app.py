@@ -38,21 +38,30 @@ tab_run, tab_eval = st.tabs(["Run", "Evaluate"])
 
 with tab_run:
     if submitted and prompt.strip():
-    try:
-        resp = requests.post(f"{API}/consensus", json={"prompt": prompt, "model": model, "k": int(k), "m": int(m), "r": int(r)})
-        if resp.status_code != 200:
-            st.error(f"API error: {resp.status_code} {resp.text}")
-        else:
-            data = resp.json()
-            st.subheader("Final decision")
-            st.json(data.get("final", {}))
-            st.subheader("All views")
-            st.json(data.get("decisions", []))
-            st.caption(f"Pair written: {data.get('pair_written')} → {data.get('pairs_path')}")
-            if data.get("evidence_supported") is not None:
-                st.caption(f"Evidence supported: {data['evidence_supported']}")
-    except Exception as e:
-        st.error(str(e))
+        try:
+            resp = requests.post(
+                f"{API}/consensus",
+                json={
+                    "prompt": prompt,
+                    "model": model,
+                    "k": int(k),
+                    "m": int(m),
+                    "r": int(r),
+                },
+            )
+            if resp.status_code != 200:
+                st.error(f"API error: {resp.status_code} {resp.text}")
+            else:
+                data = resp.json()
+                st.subheader("Final decision")
+                st.json(data.get("final", {}))
+                st.subheader("All views")
+                st.json(data.get("decisions", []))
+                st.caption(f"Pair written: {data.get('pair_written')} → {data.get('pairs_path')}")
+                if data.get("evidence_supported") is not None:
+                    st.caption(f"Evidence supported: {data['evidence_supported']}")
+        except Exception as e:
+            st.error(str(e))
 
 with tab_eval:
     st.write("GSM8K quick evaluation (EM on limited subset)")
