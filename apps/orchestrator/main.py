@@ -17,6 +17,7 @@ from libs.consensus_dpo.utils.parse_structured import parse_generator_json
 from libs.consensus_dpo.judge.aggregator import aggregate_views
 from libs.consensus_dpo.debate.r1r2 import run_r1, run_r2
 from libs.consensus_dpo.retrieval.verifier import verify_citations
+import redis
 
 
 class GenerateRequest(BaseModel):
@@ -71,6 +72,7 @@ class ConsensusRequest(BaseModel):
     k: int = 3
     m: int = 2  # counterfactual judge views
     r: int = 1  # debate rounds (R=1 minimal now)
+    use_queues: bool = False
 
 
 @app.post("/consensus")
@@ -87,7 +89,20 @@ async def consensus(req: ConsensusRequest) -> dict:
         for _ in range(req.k)
     ]
     gen_reqs = [CompletionRequest(model=req.model, prompt=p, params=gen_params) for p in prompts]
-    cands = await client.batchGenerate(gen_reqs)
+    if req.use_queues:
+        rds = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+        job_id = os.urandom(8).hex()
+        for p in prompts:
+            rds.rpush("queue:generator:in", orjson.dumps({"id": job_id, "model": req.model, "prompt": p}))
+        outs = []
+        while len(outs) < req.k:
+            _, payload = rds.blpop("queue:generator:out")
+            item = orjson.loads(payload)
+            if item.get("id") == job_id:
+                outs.append(item["text"])        
+        cands = [type("O", (), {"text": t, "usage": {}}) for t in outs]
+    else:
+        cands = await client.batchGenerate(gen_reqs)
     parsed = [parse_generator_json(c.text) or {"answer": c.text, "rationale": "", "citations": []} for c in cands]
     mlflow.log_params({"k": req.k, "m": req.m, "r": req.r})
     mlflow.log_dict({"prompt": req.prompt, "generations": parsed}, artifact_file="generations.json")
