@@ -8,7 +8,7 @@ import datasets as hf_datasets
 import mlflow
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import DPOConfig, DPOTrainer
+from trl import DPOTrainer
 
 
 @dataclass
@@ -58,26 +58,29 @@ def main() -> None:
         tokenizer, model = get_tokenizer_and_model(args.model_name)
         collator = None
 
-        dpo_cfg = DPOConfig(
-            beta=args.beta,
-            max_length=args.max_seq_len,
-            learning_rate=args.learning_rate,
-            weight_decay=args.weight_decay,
+        from transformers import TrainingArguments
+
+        training_args = TrainingArguments(
+            output_dir=args.output_dir,
             per_device_train_batch_size=args.per_device_batch,
             gradient_accumulation_steps=args.grad_accum_steps,
+            learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
             num_train_epochs=args.epochs,
-            output_dir=args.output_dir,
+            logging_steps=50,
+            save_steps=1000,
+            report_to=["none"],
         )
 
         trainer = DPOTrainer(
             model=model,
-            args=dpo_cfg.to_hf_training_args(),
-            beta=dpo_cfg.beta,
+            args=training_args,
+            beta=args.beta,
             train_dataset=ds,
             tokenizer=tokenizer,
-            max_length=dpo_cfg.max_length,
-            max_prompt_length=min(1024, dpo_cfg.max_length // 2),
-            max_target_length=min(1024, dpo_cfg.max_length // 2),
+            max_length=args.max_seq_len,
+            max_prompt_length=min(1024, args.max_seq_len // 2),
+            max_target_length=min(1024, args.max_seq_len // 2),
         )
 
         trainer.train()

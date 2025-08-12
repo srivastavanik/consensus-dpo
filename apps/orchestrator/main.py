@@ -14,6 +14,7 @@ from libs.consensus_dpo.prompts import GENERATOR_TEMPLATE, JUDGE_TEMPLATE
 from libs.consensus_dpo.utils.json_utils import extract_json_object
 from libs.consensus_dpo.utils.parse_structured import parse_generator_json
 from libs.consensus_dpo.judge.aggregator import aggregate_views
+from libs.consensus_dpo.debate.r1r2 import run_r1, run_r2
 
 
 class GenerateRequest(BaseModel):
@@ -82,7 +83,17 @@ async def consensus(req: ConsensusRequest) -> dict:
     mlflow.log_params({"k": req.k, "m": req.m, "r": req.r})
     mlflow.log_dict({"prompt": req.prompt, "generations": parsed}, artifact_file="generations.json")
 
-    # 2) Debate R=1 minimal (pairwise cross-exam skipped for brevity; next commit will add)
+    # 2) Debate R=1 minimal: let candidate A critique B and B critique A; both revise
+    if req.r >= 1 and len(parsed) >= 2:
+        r1_a = await run_r1(req.prompt, parsed[1]["answer"], req.model, client)
+        r1_b = await run_r1(req.prompt, parsed[0]["answer"], req.model, client)
+        r2_a = await run_r2(req.prompt, parsed[0]["answer"], r1_a.get("critique", ""), req.model, client)
+        r2_b = await run_r2(req.prompt, parsed[1]["answer"], r1_b.get("critique", ""), req.model, client)
+        # Use revised answers if provided
+        if isinstance(r2_a.get("answer"), str) and r2_a.get("answer"):
+            parsed[0]["answer"] = r2_a["answer"]
+        if isinstance(r2_b.get("answer"), str) and r2_b.get("answer"):
+            parsed[1]["answer"] = r2_b["answer"]
 
     # 3) Judge with m counterfactual views (swap A/B)
     a_text = parsed[0]["answer"]

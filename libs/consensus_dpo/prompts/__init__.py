@@ -10,11 +10,13 @@ GENERATOR_TEMPLATE = (
 DEBATE_R1_TEMPLATE = (
     "Cross-examination. Each candidate receives a peer’s answer; point to specific mistakes or add independent checks (<=120 tokens).\n"
     "Task: {problem}\nPeer: {peer}\n"
+    "Return JSON: {{'critique': '...', 'checks': ['...']}}\n"
 )
 
 DEBATE_R2_TEMPLATE = (
     "Defense/Revision. Revise or defend and set changed: true|false. Final brief 80–120 tokens with explicit evidence references.\n"
     "Task: {problem}\nYou (prev): {self_prev}\nCritique: {critique}\n"
+    "Return JSON: {{'answer': '...', 'changed': true, 'brief': '...', 'citations': ['...']}}\n"
 )
 
 JUDGE_TEMPLATE = (
