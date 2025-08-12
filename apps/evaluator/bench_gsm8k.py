@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Dict, List
 
 import datasets as hf
 import requests
 
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from libs.consensus_dpo.scoring.metrics import exact_match, average
-from .select_chosen import pick_chosen_text
+from apps.evaluator.select_chosen import pick_chosen_text
 
 
 def load_gsm8k(split: str = "test", limit: int | None = 100) -> List[Dict]:

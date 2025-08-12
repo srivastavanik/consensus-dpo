@@ -14,23 +14,101 @@ st.markdown(
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-    :root { --primary: #000000; --text: #111111; --bg: #ffffff; }
-    html, body, .stApp { background-color: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, 'Noto Sans', sans-serif; }
-    h1, h2, h3, h4, h5, h6, p, span, label, small, li, div { color: var(--text) !important; }
-    .stButton>button { background-color: var(--primary); color: #ffffff; border-radius: 6px; padding: 0.55rem 1rem; border: 1px solid var(--primary); }
-    .stButton>button:hover { opacity: 0.9; }
-    textarea, input, select { background-color: #ffffff !important; color: var(--text) !important; border: 1px solid var(--primary) !important; border-radius: 6px !important; }
-    .stTextArea textarea, .stTextInput input, .stNumberInput input { background: #ffffff !important; color: var(--text) !important; }
-    .stNumberInput input, .stTextInput input, .stTextArea textarea { caret-color: var(--primary) !important; }
-    .stNumberInput button svg, .stNumberInput button { color: var(--primary) !important; }
-    .stNumberInput > div, .stTextInput > div, .stTextArea > div { background: #ffffff !important; }
-    ::placeholder { color: #666666 !important; opacity: 1; }
-    .stTabs [data-baseweb="tab"] { color: #666; }
-    .stTabs [aria-selected="true"] { color: var(--primary) !important; border-bottom: 2px solid var(--primary) !important; }
-    .stMarkdown code { background: #f2f2f2; color: var(--text); }
-    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-    /* Fix low-contrast helper text and captions */
-    .stCaption, .st-emotion-cache-16idsys, .st-emotion-cache-xyz { color: var(--text) !important; opacity: 0.8; }
+    /* CSS Reset and Variables */
+    :root { --primary: #000000; --text: #000000; --bg: #ffffff; --border: #e0e0e0; }
+    
+    /* Base styles */
+    html, body, .stApp, [data-testid="stAppViewContainer"] { 
+        background-color: var(--bg) !important; 
+        color: var(--text) !important; 
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; 
+    }
+    
+    /* Text elements - force black text everywhere */
+    *, *::before, *::after,
+    h1, h2, h3, h4, h5, h6, p, span, label, small, li, div, 
+    .stMarkdown, .stText, .stCaption, .stWrite,
+    [data-testid="stMarkdownContainer"], 
+    [data-testid="stText"],
+    .st-emotion-cache-16idsys p,
+    .st-emotion-cache-1629p8f h1,
+    .element-container div,
+    .main .block-container div { 
+        color: var(--text) !important; 
+    }
+    
+    /* Buttons */
+    .stButton > button { 
+        background-color: var(--primary) !important; 
+        color: #ffffff !important; 
+        border: 1px solid var(--primary) !important; 
+        border-radius: 6px !important; 
+        padding: 0.55rem 1rem !important; 
+        font-weight: 500 !important;
+    }
+    .stButton > button:hover { opacity: 0.9 !important; }
+    
+    /* Form inputs */
+    textarea, input, select,
+    .stTextArea textarea, .stTextInput input, .stNumberInput input,
+    .stSelectbox select { 
+        background-color: var(--bg) !important; 
+        color: var(--text) !important; 
+        border: 1px solid var(--primary) !important; 
+        border-radius: 6px !important; 
+        caret-color: var(--primary) !important;
+    }
+    
+    /* Input containers */
+    .stNumberInput > div, .stTextInput > div, .stTextArea > div, .stSelectbox > div { 
+        background: var(--bg) !important; 
+    }
+    
+    /* Number input buttons */
+    .stNumberInput button, .stNumberInput button svg { 
+        color: var(--primary) !important; 
+        background: var(--bg) !important;
+    }
+    
+    /* Placeholders */
+    ::placeholder { color: #666666 !important; opacity: 1 !important; }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab"] { 
+        color: #666666 !important; 
+        font-weight: 500 !important;
+    }
+    .stTabs [aria-selected="true"] { 
+        color: var(--primary) !important; 
+        border-bottom: 2px solid var(--primary) !important; 
+        font-weight: 600 !important;
+    }
+    
+    /* Form labels */
+    .stTextInput label, .stTextArea label, .stNumberInput label, .stSelectbox label {
+        color: var(--text) !important;
+        font-weight: 500 !important;
+    }
+    
+    /* JSON and code blocks */
+    .stJson, .stCode, pre, code { 
+        background: #f8f8f8 !important; 
+        color: var(--text) !important; 
+        border: 1px solid var(--border) !important;
+    }
+    
+    /* Containers */
+    .block-container { 
+        padding-top: 2rem !important; 
+        padding-bottom: 2rem !important; 
+        background: var(--bg) !important;
+    }
+    
+    /* Override any remaining light text */
+    .st-emotion-cache-1y4p8pa, .st-emotion-cache-16idsys, 
+    .st-emotion-cache-1wivap2, .st-emotion-cache-10trblm {
+        color: var(--text) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
