@@ -6,11 +6,14 @@ from typing import List, Optional
 import orjson
 from fastapi import FastAPI
 from pydantic import BaseModel
+import mlflow
 
 from libs.consensus_dpo.provider import CompletionRequest, GenParams, NovitaClient
 from libs.consensus_dpo.datasets import PairBuilder
 from libs.consensus_dpo.prompts import GENERATOR_TEMPLATE, JUDGE_TEMPLATE
 from libs.consensus_dpo.utils.json_utils import extract_json_object
+from libs.consensus_dpo.utils.parse_structured import parse_generator_json
+from libs.consensus_dpo.judge.aggregator import aggregate_views
 
 
 class GenerateRequest(BaseModel):
@@ -63,6 +66,10 @@ class ConsensusRequest(BaseModel):
 @app.post("/consensus")
 async def consensus(req: ConsensusRequest) -> dict:
     client = NovitaClient()
+    # Start MLflow run for observability
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "consensus-dpo"))
+    mlflow.start_run(run_name="consensus")
     # 1) Generation with structured prompt
     gen_params = GenParams(temperature=0.9, top_p=0.95, max_tokens=512)
     prompts = [
@@ -71,12 +78,15 @@ async def consensus(req: ConsensusRequest) -> dict:
     ]
     gen_reqs = [CompletionRequest(model=req.model, prompt=p, params=gen_params) for p in prompts]
     cands = await client.batchGenerate(gen_reqs)
+    parsed = [parse_generator_json(c.text) or {"answer": c.text, "rationale": "", "citations": []} for c in cands]
+    mlflow.log_params({"k": req.k, "m": req.m, "r": req.r})
+    mlflow.log_dict({"prompt": req.prompt, "generations": parsed}, artifact_file="generations.json")
 
     # 2) Debate R=1 minimal (pairwise cross-exam skipped for brevity; next commit will add)
 
     # 3) Judge with m counterfactual views (swap A/B)
-    a_text = cands[0].text
-    b_text = cands[1].text if len(cands) > 1 else cands[0].text
+    a_text = parsed[0]["answer"]
+    b_text = parsed[1]["answer"] if len(parsed) > 1 else parsed[0]["answer"]
 
     decisions = []
     judge_params = GenParams(temperature=0.2, top_p=0.9, max_tokens=220)
@@ -93,6 +103,7 @@ async def consensus(req: ConsensusRequest) -> dict:
             "len_norm_consistency": False,
         }
         decisions.append(parsed)
+    mlflow.log_dict({"decisions": decisions}, artifact_file="decisions.json")
 
     # Aggregate: consistency if both views flip winner accordingly
     if len(decisions) >= 2:
@@ -102,15 +113,18 @@ async def consensus(req: ConsensusRequest) -> dict:
         for d in decisions:
             d["pos_swap_consistency"] = bool(pos_consistent)
 
-    final_decision = decisions[0]
+    final_decision = aggregate_views(decisions)
 
     from libs.consensus_dpo.datasets.pairs import Candidate
 
-    cand_a = Candidate(answer=a_text, rationale="", citations=[])
-    cand_b = Candidate(answer=b_text, rationale="", citations=[])
+    cand_a = Candidate(answer=a_text, rationale=parsed[0].get("rationale", ""), citations=parsed[0].get("citations", []))
+    cand_b = Candidate(answer=b_text, rationale=(parsed[1].get("rationale", "") if len(parsed) > 1 else ""), citations=(parsed[1].get("citations", []) if len(parsed) > 1 else []))
     out_path = os.getenv("PAIRS_OUT", "./data/pairs.v1.jsonl")
     builder = PairBuilder(out_path)
     rec = builder.add_pair(req.prompt, cand_a, cand_b, final_decision, debate_meta={"rounds": req.r, "agents": req.k})
+    if rec:
+        mlflow.log_dict(final_decision, artifact_file="final_decision.json")
+    mlflow.end_run()
     await client.aclose()
     return {"decisions": decisions, "final": final_decision, "pair_written": bool(rec), "pairs_path": out_path}
 
