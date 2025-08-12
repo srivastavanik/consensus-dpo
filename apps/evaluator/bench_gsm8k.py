@@ -8,6 +8,7 @@ import datasets as hf
 import requests
 
 from libs.consensus_dpo.scoring.metrics import exact_match, average
+from .select_chosen import pick_chosen_text
 
 
 def load_gsm8k(split: str = "test", limit: int | None = 100) -> List[Dict]:
@@ -33,8 +34,9 @@ def eval_gsm8k(orchestrator_url: str, limit: int | None = 100) -> Dict[str, floa
         })
         if resp.status_code != 200:
             continue
-        # For now, compare JSON final decision string to gold; later, parse chosen text.
-        pred = json.dumps(resp.json().get("final", {}))
+        payload = resp.json()
+        final = payload.get("final", {})
+        pred = pick_chosen_text(final, payload.get("a", ""), payload.get("b", ""))
         em.append(exact_match(pred, item["gold"]))
     return {"GSM8K_EM": average(em)}
 

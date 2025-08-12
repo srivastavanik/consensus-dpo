@@ -8,6 +8,7 @@ import datasets as hf
 import requests
 
 from libs.consensus_dpo.scoring.metrics import average
+from .select_chosen import pick_chosen_text
 
 
 def load_mmlu(split: str = "test", limit: int | None = 100) -> List[Dict]:
@@ -38,8 +39,10 @@ def eval_mmlu(orchestrator_url: str, limit: int | None = 100) -> Dict[str, float
         })
         if resp.status_code != 200:
             continue
-        final = json.dumps(resp.json().get("final", {})).lower()
-        scores.append(1.0 if item["gold"].lower() in final else 0.0)
+        payload = resp.json()
+        final = payload.get("final", {})
+        pred = pick_chosen_text(final, payload.get("a", ""), payload.get("b", ""))
+        scores.append(1.0 if item["gold"].lower() in pred.lower() else 0.0)
     return {"MMLU_acc": average(scores)}
 
 
