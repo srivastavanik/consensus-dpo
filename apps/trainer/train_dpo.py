@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+import argparse
 from typing import Any, Dict
 
 import datasets as hf_datasets
@@ -37,9 +38,30 @@ def get_tokenizer_and_model(model_name: str):
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--beta", type=float, default=0.2)
+    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--wd", type=float, default=0.01)
+    parser.add_argument("--max-len", type=int, default=8192)
+    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--bsz", type=int, default=1)
+    parser.add_argument("--acc", type=int, default=64)
+    parser.add_argument("--outdir", type=str, default="./data/runs/dpo")
+    cli = parser.parse_args()
+
     pairs_path = os.environ.get("DPO_PAIRS_PATH", "./data/pairs.v1.jsonl")
     model_name = os.environ.get("STUDENT_MODEL", "gpt2")
-    args = TrainArgs(model_name=model_name)
+    args = TrainArgs(
+        model_name=model_name,
+        beta=cli.beta,
+        learning_rate=cli.lr,
+        weight_decay=cli.wd,
+        max_seq_len=cli.max_len,
+        epochs=cli.epochs,
+        per_device_batch=cli.bsz,
+        grad_accum_steps=cli.acc,
+        output_dir=cli.outdir,
+    )
 
     mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
     mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "consensus-dpo"))

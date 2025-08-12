@@ -4,6 +4,8 @@ COPY pyproject.toml README.md /app/
 COPY libs /app/libs
 COPY apps/orchestrator /app/apps/orchestrator
 RUN pip install --no-cache-dir uvicorn[standard] && pip install --no-cache-dir .
+ENV NOVITA_BASE_URL=https://api.novita.ai
+ENV NOVITA_API_PATH=/v1/chat/completions
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["uvicorn", "apps.orchestrator.main:app", "--host", "0.0.0.0", "--port", "8000"]

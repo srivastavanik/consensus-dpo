@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY pyproject.toml README.md /app/
+COPY libs /app/libs
+COPY apps/retriever /app/apps/retriever
+RUN pip install --no-cache-dir uvicorn[standard] && pip install --no-cache-dir .[retrieval]
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8010
+CMD ["uvicorn", "apps.retriever.main:app", "--host", "0.0.0.0", "--port", "8010"]
+
+

@@ -114,7 +114,8 @@ class NovitaClient(ModelProvider):
         return Completion(model=req.model, prompt=req.prompt, text=text, usage=usage, raw=raw)
 
     async def batchGenerate(self, reqs: List[CompletionRequest]) -> List[Completion]:  # noqa: N802
-        return [await self.generate(r) for r in reqs]
+        import asyncio
+        return await asyncio.gather(*(self.generate(r) for r in reqs))
 
     async def aclose(self) -> None:
         await self._client.aclose()

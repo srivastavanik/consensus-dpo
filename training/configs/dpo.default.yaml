@@ -1,0 +1,11 @@
+model_name: gpt2
+beta: 0.2
+learning_rate: 1.0e-5
+weight_decay: 0.01
+max_seq_len: 8192
+epochs: 1
+per_device_batch: 1
+grad_accum_steps: 64
+output_dir: ./data/runs/dpo
+pairs_path: ./data/pairs.v1.jsonl
+
